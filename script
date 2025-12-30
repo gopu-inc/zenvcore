@@ -1,0 +1,1589 @@
+import os
+import sys
+import json
+
+class ProjectGenerator:
+    def __init__(self, project_name="zenv-frontend"):
+        self.root_dir = project_name
+        self.api_url = "https://zenv-hub.onrender.com"
+        
+    def create_directory(self, path):
+        full_path = os.path.join(self.root_dir, path)
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
+            print(f"📁 Dossier créé : {path}")
+
+    def write_file(self, path, content):
+        full_path = os.path.join(self.root_dir, path)
+        try:
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write(content.strip())
+            print(f"✅ Fichier généré : {path}")
+        except Exception as e:
+            print(f"❌ Erreur sur {path}: {str(e)}")
+            sys.exit(1)
+
+    def generate(self):
+        print(f"🚀 Démarrage de la génération du projet {self.root_dir}...")
+        
+        # 1. Création de la structure
+        if not os.path.exists(self.root_dir):
+            os.makedirs(self.root_dir)
+            
+        directories = [
+            "public",
+            "src",
+            "src/assets",
+            "src/components",
+            "src/pages",
+            "src/contexts",
+            "src/services",
+            "src/hooks",
+            "src/utils"
+        ]
+        
+        for d in directories:
+            self.create_directory(d)
+
+        # 2. Fichiers de configuration (Root)
+        self.write_package_json()
+        self.write_vite_config()
+        self.write_tailwind_config()
+        self.write_postcss_config()
+        self.write_index_html()
+        self.write_gitignore()
+        self.write_readme()
+
+        # 3. Code Source (Src)
+        self.write_main_jsx()
+        self.write_app_jsx()
+        self.write_index_css()
+        
+        # 4. Services & Utils
+        self.write_api_service()
+        self.write_utils()
+
+        # 5. Composants
+        self.write_navbar_component()
+        self.write_footer_component()
+        self.write_terminal_component()
+        self.write_badge_preview_component()
+        self.write_loader_component()
+
+        # 6. Pages
+        self.write_home_page()
+        self.write_packages_page()
+        self.write_package_detail_page()
+        self.write_docs_page()
+        self.write_badges_page()
+        self.write_auth_pages()
+
+        print("\n" + "="*50)
+        print("✅ PROJET GÉNÉRÉ AVEC SUCCÈS !")
+        print("="*50)
+        print("Instructions pour le déploiement sur Cloudflare Pages :")
+        print(f"1. cd {self.root_dir}")
+        print("2. git init")
+        print("3. git add .")
+        print("4. git commit -m 'Initial commit'")
+        print("5. Créez un repo sur GitHub et poussez le code.")
+        print("6. Sur Cloudflare Pages, connectez votre GitHub.")
+        print("7. Settings build :")
+        print("   - Framework: Vite")
+        print("   - Command: npm run build")
+        print("   - Output directory: dist")
+        print("="*50)
+
+    # ---------------------------------------------------------
+    # DEFINITION DES FICHIERS
+    # ---------------------------------------------------------
+
+    def write_package_json(self):
+        content = """
+{
+  "name": "zenv-hub-frontend",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "framer-motion": "^11.0.3",
+    "lucide-react": "^0.330.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "react-syntax-highlighter": "^15.5.0",
+    "react-toastify": "^10.0.4",
+    "recharts": "^2.12.0",
+    "date-fns": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.4"
+  }
+}
+"""
+        self.write_file("package.json", content)
+
+    def write_vite_config(self):
+        content = """
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://zenv-hub.onrender.com',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
+})
+"""
+        self.write_file("vite.config.js", content)
+
+    def write_tailwind_config(self):
+        content = """
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        zenv: {
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          900: '#0c4a6e',
+          dark: '#0f172a',
+          card: '#1e293b'
+        }
+      },
+      fontFamily: {
+        mono: ['Fira Code', 'monospace'],
+      }
+    },
+  },
+  plugins: [],
+}
+"""
+        self.write_file("tailwind.config.js", content)
+
+    def write_postcss_config(self):
+        content = """
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+"""
+        self.write_file("postcss.config.js", content)
+
+    def write_index_html(self):
+        content = """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zenv Package Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-zenv-dark text-slate-200 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+"""
+        self.write_file("index.html", content)
+
+    def write_index_css(self):
+        content = """
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #0B1120;
+}
+
+.font-mono {
+  font-family: 'Fira Code', monospace;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a; 
+}
+::-webkit-scrollbar-thumb {
+  background: #334155; 
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569; 
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 10px;
+  height: 1.2em;
+  background-color: #0ea5e9;
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+"""
+        self.write_file("src/index.css", content)
+
+    def write_api_service(self):
+        content = f"""
+import axios from 'axios';
+
+const API_URL = "{self.api_url}/api";
+
+const api = axios.create({{
+  baseURL: API_URL,
+  headers: {{
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }}
+}});
+
+// Intercepteur pour ajouter le token
+api.interceptors.request.use((config) => {{
+  const token = localStorage.getItem('zenv_token');
+  if (token) {{
+    config.headers.Authorization = `Bearer ${{token}}`;
+  }}
+  return config;
+}});
+
+export const PackageService = {{
+  getAll: () => api.get('/packages'),
+  search: (query) => api.get('/packages/search', {{ params: {{ q: query }} }}),
+  getOne: (name, version) => api.get(`/packages/${{name}}/${{version || 'latest'}}`),
+  getReadme: (name) => api.get(`/readme/${{name}}`),
+  download: (name, version) => `${{API_URL}}/packages/download/${{name}}/${{version}}`
+}};
+
+export const AuthService = {{
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (data) => api.post('/auth/register', data),
+  getProfile: () => api.get('/auth/profile'),
+  verifyToken: (token) => api.get(`/tokens/verify?token=${{token}}`)
+}};
+
+export const BadgeService = {{
+  getAll: () => api.get('/badges'),
+  create: (data) => api.post('/badges', data),
+  createWithLogo: (data) => api.post('/badges/with-logo', data),
+  getSvgUrl: (name) => `${{self.api_url}}/badge/svg/${{name}}`
+}};
+
+export default api;
+"""
+        self.write_file("src/services/api.js", content)
+
+    def write_terminal_component(self):
+        content = """
+import React, { useState, useEffect, useRef } from 'react';
+import { PackageService } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+
+const ZenvTerminal = () => {
+  const [history, setHistory] = useState([
+    { type: 'info', content: 'Zenv Core v2.2.0 - Connected to Hub' },
+    { type: 'info', content: 'Type "help" for available commands.' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [history]);
+
+  const handleCommand = async (cmd) => {
+    const args = cmd.trim().split(' ');
+    const command = args[0].toLowerCase();
+    
+    // Ajout commande à l'historique
+    setHistory(prev => [...prev, { type: 'command', content: `zenv ${cmd}` }]);
+    setIsProcessing(true);
+
+    try {
+      switch (command) {
+        case 'help':
+          setHistory(prev => [...prev, { 
+            type: 'success', 
+            content: `
+Available commands:
+  install <package>   Install a package (simulation)
+  search <query>      Search packages on Hub
+  info <package>      Get package details
+  login               Go to login page
+  clear               Clear terminal
+  version             Show version
+            ` 
+          }]);
+          break;
+
+        case 'clear':
+          setHistory([]);
+          break;
+
+        case 'version':
+          setHistory(prev => [...prev, { type: 'info', content: 'zenv-cli v2.0.0 (python3)' }]);
+          break;
+
+        case 'login':
+          setHistory(prev => [...prev, { type: 'info', content: 'Redirecting to login...' }]);
+          setTimeout(() => navigate('/login'), 1000);
+          break;
+
+        case 'search':
+          if (!args[1]) {
+            setHistory(prev => [...prev, { type: 'error', content: 'Usage: search <query>' }]);
+            break;
+          }
+          setHistory(prev => [...prev, { type: 'info', content: `Searching for "${args[1]}"...` }]);
+          try {
+            // Utilisation réelle de l'API ici si possible, sinon fallback mockup pour la démo
+            const res = await PackageService.search(args[1]).catch(() => null);
+            if (res && res.data && res.data.packages) {
+                const results = res.data.packages.map(p => `• ${p.name} (v${p.version}) - ${p.description}`).join('\\n');
+                setHistory(prev => [...prev, { type: 'success', content: results || 'No results found.' }]);
+            } else {
+                setHistory(prev => [...prev, { type: 'warning', content: 'No packages found matching query.' }]);
+            }
+          } catch (e) {
+            setHistory(prev => [...prev, { type: 'error', content: 'Connection failed.' }]);
+          }
+          break;
+
+        case 'install':
+          if (!args[1]) {
+            setHistory(prev => [...prev, { type: 'error', content: 'Usage: install <package>' }]);
+            break;
+          }
+          const pkg = args[1];
+          setHistory(prev => [...prev, { type: 'info', content: `Resolving ${pkg}...` }]);
+          
+          // Simulation d'installation avec délai
+          setTimeout(() => {
+             setHistory(prev => [...prev, { type: 'info', content: `Downloading ${pkg}-latest.zv...` }]);
+             setTimeout(() => {
+                 setHistory(prev => [...prev, { type: 'info', content: `Extracting...` }]);
+                 setTimeout(() => {
+                     setHistory(prev => [...prev, { type: 'success', content: `✅ Successfully installed ${pkg}` }]);
+                     setIsProcessing(false);
+                 }, 800);
+             }, 800);
+          }, 800);
+          return; // Return early because we handle processing state in timeout
+
+        case 'info':
+            if (!args[1]) {
+                setHistory(prev => [...prev, { type: 'error', content: 'Usage: info <package>' }]);
+                break;
+            }
+            navigate(`/packages/${args[1]}`);
+            setHistory(prev => [...prev, { type: 'info', content: 'Opening package details...' }]);
+            break;
+
+        default:
+          setHistory(prev => [...prev, { type: 'error', content: `Command not found: ${command}` }]);
+      }
+    } catch (err) {
+      setHistory(prev => [...prev, { type: 'error', content: `Error: ${err.message}` }]);
+    }
+
+    setIsProcessing(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !isProcessing) {
+      if (input.trim()) {
+        handleCommand(input);
+        setInput('');
+      }
+    }
+  };
+
+  return (
+    <div className="w-full max-w-4xl mx-auto bg-black/90 rounded-lg overflow-hidden shadow-2xl border border-slate-700 font-mono text-sm sm:text-base backdrop-blur-sm">
+      <div className="bg-slate-800/50 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
+        <div className="flex gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+        </div>
+        <div className="text-slate-400 text-xs ml-2">user@zenv-hub:~$</div>
+      </div>
+      
+      <div 
+        className="p-4 h-[400px] overflow-y-auto cursor-text"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {history.map((line, i) => (
+          <div key={i} className={`mb-1 whitespace-pre-wrap ${
+            line.type === 'error' ? 'text-red-400' :
+            line.type === 'success' ? 'text-green-400' :
+            line.type === 'warning' ? 'text-yellow-400' :
+            line.type === 'command' ? 'text-slate-300 font-bold opacity-80' :
+            'text-blue-300'
+          }`}>
+            {line.type === 'command' ? '$ ' : ''}{line.content}
+          </div>
+        ))}
+        
+        <div className="flex items-center text-slate-100">
+          <span className="text-green-500 mr-2">$</span>
+          <span className="text-blue-400 mr-2">zenv</span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isProcessing}
+            className="flex-1 bg-transparent outline-none border-none text-white"
+            autoFocus
+          />
+        </div>
+        <div ref={bottomRef}></div>
+      </div>
+    </div>
+  );
+};
+
+export default ZenvTerminal;
+"""
+        self.write_file("src/components/Terminal.jsx", content)
+
+    def write_navbar_component(self):
+        content = """
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, Terminal, Package, Book, Shield, User } from 'lucide-react';
+
+const Navbar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const token = localStorage.getItem('zenv_token');
+
+  const navLinks = [
+    { name: 'Packages', path: '/packages', icon: <Package size={18} /> },
+    { name: 'Badges', path: '/badges', icon: <Shield size={18} /> },
+    { name: 'Docs', path: '/docs', icon: <Book size={18} /> },
+  ];
+
+  return (
+    <nav className="bg-zenv-dark/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center gap-2 text-white font-bold text-xl">
+            <div className="bg-blue-600 p-1.5 rounded-md">
+                <Terminal size={20} className="text-white" />
+            </div>
+            <span>Zenv<span className="text-blue-500">Hub</span></span>
+          </Link>
+
+          <div className="hidden md:block">
+            <div className="ml-10 flex items-baseline space-x-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+                    location.pathname === link.path
+                      ? 'bg-slate-800 text-blue-400'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {link.icon}
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden md:block">
+            {token ? (
+                <Link to="/profile" className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
+                    <User size={16} /> Profile
+                </Link>
+            ) : (
+                <div className="flex gap-2">
+                    <Link to="/login" className="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Login</Link>
+                    <Link to="/register" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">Sign Up</Link>
+                </div>
+            )}
+          </div>
+
+          <div className="-mr-2 flex md:hidden">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="bg-slate-800 p-2 rounded-md text-slate-400 hover:text-white focus:outline-none"
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="md:hidden bg-slate-900 border-b border-slate-800">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.path}
+                onClick={() => setIsOpen(false)}
+                className="text-slate-300 hover:text-white hover:bg-slate-800 block px-3 py-2 rounded-md text-base font-medium flex items-center gap-2"
+              >
+                {link.icon}
+                {link.name}
+              </Link>
+            ))}
+             <div className="border-t border-slate-800 pt-2 mt-2">
+                {token ? (
+                     <Link to="/profile" className="text-slate-300 block px-3 py-2">Profile</Link>
+                ) : (
+                    <>
+                        <Link to="/login" className="text-slate-300 block px-3 py-2">Login</Link>
+                        <Link to="/register" className="text-blue-400 block px-3 py-2 font-bold">Sign Up</Link>
+                    </>
+                )}
+             </div>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+};
+
+export default Navbar;
+"""
+        self.write_file("src/components/Navbar.jsx", content)
+
+    def write_home_page(self):
+        content = """
+import React from 'react';
+import { Link } from 'react-router-dom';
+import ZenvTerminal from '../components/Terminal';
+import { ArrowRight, Download, Box, ShieldCheck, Zap } from 'lucide-react';
+
+const Home = () => {
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <h1 className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 tracking-tight mb-6">
+              The Package Manager<br />for the Future
+            </h1>
+            <p className="mt-4 text-xl text-slate-400 max-w-2xl mx-auto">
+              Secure, fast, and Python-native package management. 
+              Install <code className="bg-slate-800 px-2 py-1 rounded text-blue-300">zenv[core]</code> and start building.
+            </p>
+            <div className="mt-8 flex justify-center gap-4">
+              <Link to="/docs" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2">
+                Get Started <ArrowRight size={20} />
+              </Link>
+              <Link to="/packages" className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-lg font-medium transition-all">
+                Browse Packages
+              </Link>
+            </div>
+            
+            <div className="mt-8 flex justify-center items-center gap-4 text-sm text-slate-500 font-mono">
+                <span className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-full flex items-center gap-2">
+                    <span className="text-green-500">$</span> pip install zenv-lang
+                </span>
+                <span className="hidden sm:inline">then</span>
+                <span className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-full flex items-center gap-2">
+                    <span className="text-green-500">$</span> zenv install zenv[core]
+                </span>
+            </div>
+          </div>
+
+          <div className="transform hover:scale-[1.01] transition-transform duration-500">
+            <ZenvTerminal />
+          </div>
+        </div>
+        
+        {/* Background Gradients */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl pointer-events-none">
+            <div className="absolute top-20 left-10 w-72 h-72 bg-blue-600/20 rounded-full blur-[100px]"></div>
+            <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-600/10 rounded-full blur-[120px]"></div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="py-20 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid md:grid-cols-3 gap-8">
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors">
+                    <div className="bg-blue-900/30 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-blue-400">
+                        <Box size={24} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Universal Packages</h3>
+                    <p className="text-slate-400">Support for .zv archives with a powerful TOML manifest system for dependency management.</p>
+                </div>
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors">
+                    <div className="bg-green-900/30 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-green-400">
+                        <ShieldCheck size={24} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Secure by Default</h3>
+                    <p className="text-slate-400">Private repository integration, token-based authentication, and hash verification.</p>
+                </div>
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors">
+                    <div className="bg-purple-900/30 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-purple-400">
+                        <Zap size={24} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Fast & Lightweight</h3>
+                    <p className="text-slate-400">Built with Python performance in mind. No bloat, just efficient package delivery.</p>
+                </div>
+            </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;
+"""
+        self.write_file("src/pages/Home.jsx", content)
+
+    def write_badges_page(self):
+        content = """
+import React, { useState, useEffect } from 'react';
+import { BadgeService } from '../services/api';
+import { Copy, RefreshCw, Check, Shield } from 'lucide-react';
+import { toast } from 'react-toastify';
+
+const Badges = () => {
+  const [label, setLabel] = useState('zenv');
+  const [value, setValue] = useState('v1.0.0');
+  const [color, setColor] = useState('blue');
+  const [logo, setLogo] = useState('python');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [generatedUrl, setGeneratedUrl] = useState('');
+
+  const colors = ['blue', 'green', 'red', 'orange', 'yellow', 'purple', 'gray'];
+  const logos = ['python', 'github', 'docker', 'react', 'none'];
+
+  useEffect(() => {
+    updatePreview();
+  }, [label, value, color, logo]);
+
+  const updatePreview = () => {
+    // Construction de l'URL pour la preview
+    // Utilisation de l'API réelle pour la génération
+    let url = `https://zenv-hub.onrender.com/badge/custom/${label}/${value}/${color}`;
+    if (logo && logo !== 'none') {
+        url += `/${logo}`;
+    }
+    setPreviewUrl(url);
+    setGeneratedUrl(url);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-white mb-4">Badge Workshop</h1>
+        <p className="text-slate-400">Create custom SVG badges for your READMEs.</p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-12">
+        {/* Controls */}
+        <div className="bg-slate-800/50 p-8 rounded-xl border border-slate-700">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Label</label>
+              <input 
+                type="text" 
+                value={label} 
+                onChange={(e) => setLabel(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-md px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Value</label>
+              <input 
+                type="text" 
+                value={value} 
+                onChange={(e) => setValue(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-md px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`w-8 h-8 rounded-full border-2 ${color === c ? 'border-white scale-110' : 'border-transparent'}`}
+                    style={{ backgroundColor: c === 'blue' ? '#007ec6' : c === 'green' ? '#4c1' : c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Logo</label>
+              <select 
+                value={logo}
+                onChange={(e) => setLogo(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-md px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                {logos.map(l => (
+                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview & Code */}
+        <div className="space-y-8">
+          <div className="bg-slate-800 p-8 rounded-xl border border-slate-700 flex flex-col items-center justify-center min-h-[200px]">
+            <h3 className="text-slate-400 text-sm uppercase tracking-wider mb-6">Preview</h3>
+            <img src={previewUrl} alt="Badge Preview" className="h-8 shadow-lg" onError={(e) => e.target.style.display = 'none'} />
+          </div>
+
+          <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700">
+            <div className="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+              <span className="text-sm font-medium text-slate-300">Markdown</span>
+              <button 
+                onClick={() => copyToClipboard(`![${label}](${generatedUrl})`)}
+                className="text-slate-400 hover:text-white"
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+            <div className="p-4 font-mono text-sm text-blue-300 break-all">
+              ![{label}]({generatedUrl})
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Badges;
+"""
+        self.write_file("src/pages/Badges.jsx", content)
+
+    def write_docs_page(self):
+        content = """
+import React from 'react';
+import { Book, Terminal, Settings, Package } from 'lucide-react';
+
+const DocSection = ({ title, children, icon: Icon }) => (
+  <div className="mb-12">
+    <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-2">
+      {Icon && <Icon className="text-blue-500" size={24} />}
+      <h2 className="text-2xl font-bold text-white">{title}</h2>
+    </div>
+    <div className="space-y-4 text-slate-300 leading-relaxed">
+      {children}
+    </div>
+  </div>
+);
+
+const CodeBlock = ({ code, language = 'bash' }) => (
+  <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm border border-slate-800 my-4 overflow-x-auto">
+    <div className="flex gap-2 mb-2">
+      <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
+      <div className="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+      <div className="w-3 h-3 rounded-full bg-green-500/50"></div>
+    </div>
+    <pre className="text-blue-300">
+      <code>{code}</code>
+    </pre>
+  </div>
+);
+
+const Docs = () => {
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="text-center mb-16">
+        <h1 className="text-4xl font-bold text-white mb-4">Documentation</h1>
+        <p className="text-xl text-slate-400">Everything you need to know about Zenv.</p>
+      </div>
+
+      <DocSection title="Installation" icon={Terminal}>
+        <p>Zenv is available via PyPI as <code>zenv-lang</code>. It is a modern package manager written in Python.</p>
+        <CodeBlock code="$ pip install zenv-lang" />
+        <p>Once the base CLI is installed, you need to install the core package:</p>
+        <CodeBlock code="$ zenv install zenv[core]" />
+        <p>Verify your installation:</p>
+        <CodeBlock code="$ zenv version" />
+      </DocSection>
+
+      <DocSection title="Usage" icon={Package}>
+        <h3 className="text-lg font-semibold text-white mt-4">Installing Packages</h3>
+        <p>Install packages from the Zenv Hub easily:</p>
+        <CodeBlock code="$ zenv install <package_name>" />
+        
+        <h3 className="text-lg font-semibold text-white mt-4">Searching</h3>
+        <p>Find packages directly from your terminal:</p>
+        <CodeBlock code="$ zenv search <query>" />
+
+        <h3 className="text-lg font-semibold text-white mt-4">Authentication</h3>
+        <p>To publish private packages or access restricted resources, authenticate using your token:</p>
+        <CodeBlock code="$ zenv auth <your_token>" />
+      </DocSection>
+
+      <DocSection title="Creating Packages" icon={Settings}>
+        <p>A Zenv package consists of a <code>package.zcf</code> (Zenv Configuration File) manifest and your source code.</p>
+        
+        <h3 className="text-lg font-semibold text-white mt-4">Structure</h3>
+        <CodeBlock code={`my-package/
+├── package.zcf      # Manifest
+├── src/
+│   └── main.py      # Source code
+└── README.md`} language="text" />
+
+        <h3 className="text-lg font-semibold text-white mt-4">Example Manifest (package.zcf)</h3>
+        <CodeBlock code={`[Zenv]
+name = "my-awesome-tool"
+version = "1.0.0"
+author = "DevName"
+description = "A useful tool"
+license = "MIT"
+
+[Build]
+type = "zenv"
+entry_point = "src/main.py"
+output = "dist/{name}-{version}.zv"
+
+[entrypoint]
+my-tool = "src/main.py"`} language="toml" />
+
+        <h3 className="text-lg font-semibold text-white mt-4">Publishing</h3>
+        <p>Once your package is ready, publish it to the hub:</p>
+        <CodeBlock code="$ zenv publish" />
+      </DocSection>
+    </div>
+  );
+};
+
+export default Docs;
+"""
+        self.write_file("src/pages/Docs.jsx", content)
+
+    def write_app_jsx(self):
+        content = """
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// Components
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+
+// Pages
+import Home from './pages/Home';
+import Packages from './pages/Packages';
+import PackageDetail from './pages/PackageDetail';
+import Badges from './pages/Badges';
+import Docs from './pages/Docs';
+import Login from './pages/Login';
+import Register from './pages/Register';
+
+function App() {
+  return (
+    <Router>
+      <div className="flex flex-col min-h-screen bg-zenv-dark text-slate-200">
+        <Navbar />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/packages" element={<Packages />} />
+            <Route path="/packages/:name" element={<PackageDetail />} />
+            <Route path="/badges" element={<Badges />} />
+            <Route path="/docs" element={<Docs />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Routes>
+        </main>
+        <Footer />
+        <ToastContainer position="bottom-right" theme="dark" />
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+"""
+        self.write_file("src/App.jsx", content)
+
+    def write_main_jsx(self):
+        content = """
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+"""
+        self.write_file("src/main.jsx", content)
+
+    # ... Je vais compléter avec les fichiers manquants essentiels ...
+
+    def write_footer_component(self):
+        content = """
+import React from 'react';
+import { Github, Twitter } from 'lucide-react';
+
+const Footer = () => {
+  return (
+    <footer className="bg-slate-900 border-t border-slate-800 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="mb-4 md:mb-0">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                Zenv<span className="text-blue-500">Hub</span>
+            </h3>
+            <p className="text-slate-500 text-sm mt-2">© 2024 Gopu Inc. Open Source.</p>
+          </div>
+          
+          <div className="flex gap-6">
+            <a href="https://github.com/gopu-inc/zenv" target="_blank" className="text-slate-400 hover:text-white transition-colors">
+                <Github size={20} />
+            </a>
+            <a href="#" className="text-slate-400 hover:text-white transition-colors">
+                <Twitter size={20} />
+            </a>
+          </div>
+        </div>
+        <div className="mt-8 text-center text-xs text-slate-600">
+            Hosted on Cloudflare Pages • API on Render
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+"""
+        self.write_file("src/components/Footer.jsx", content)
+
+    def write_loader_component(self):
+        content = """
+import React from 'react';
+
+const Loader = () => (
+  <div className="flex justify-center items-center py-20">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+  </div>
+);
+
+export default Loader;
+"""
+        self.write_file("src/components/Loader.jsx", content)
+
+    def write_packages_page(self):
+        content = """
+import React, { useEffect, useState } from 'react';
+import { PackageService } from '../services/api';
+import { Link } from 'react-router-dom';
+import { Search, Download, Box } from 'lucide-react';
+import Loader from '../components/Loader';
+
+const Packages = () => {
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+
+  const fetchPackages = async () => {
+    try {
+      const res = await PackageService.getAll();
+      if(res.data && res.data.packages) {
+        setPackages(res.data.packages);
+      }
+    } catch (error) {
+      console.error("Error fetching packages", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+        if (!searchTerm) {
+            fetchPackages();
+            return;
+        }
+        const res = await PackageService.search(searchTerm);
+        if(res.data && res.data.packages) {
+            setPackages(res.data.packages);
+        } else {
+            setPackages([]);
+        }
+    } catch(err) {
+        console.error(err);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <h1 className="text-3xl font-bold text-white">Explore Packages</h1>
+        
+        <form onSubmit={handleSearch} className="relative w-full md:w-96">
+            <input 
+                type="text" 
+                placeholder="Search packages..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <Search className="absolute left-3 top-2.5 text-slate-500" size={18} />
+        </form>
+      </div>
+
+      {loading ? (
+        <Loader />
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {packages.length > 0 ? packages.map((pkg) => (
+            <Link key={pkg.name} to={`/packages/${pkg.name}`} className="block group">
+                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 h-full hover:border-blue-500/50 hover:bg-slate-800 transition-all">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-2 bg-blue-900/20 rounded-lg text-blue-400">
+                            <Box size={24} />
+                        </div>
+                        <span className="text-xs bg-slate-900 px-2 py-1 rounded text-slate-400 font-mono">v{pkg.version}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{pkg.name}</h3>
+                    <p className="text-slate-400 text-sm line-clamp-2 mb-4">{pkg.description || 'No description provided.'}</p>
+                    
+                    <div className="flex justify-between items-center text-xs text-slate-500 border-t border-slate-700/50 pt-4 mt-auto">
+                        <span>by {pkg.author}</span>
+                        <span className="flex items-center gap-1"><Download size={12} /> {pkg.downloads_count || 0}</span>
+                    </div>
+                </div>
+            </Link>
+          )) : (
+            <div className="col-span-full text-center py-20 text-slate-500">
+                No packages found.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Packages;
+"""
+        self.write_file("src/pages/Packages.jsx", content)
+
+    def write_package_detail_page(self):
+        content = """
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { PackageService, BadgeService } from '../services/api';
+import Loader from '../components/Loader';
+import { Download, Copy, Shield, Calendar, User } from 'lucide-react';
+import { toast } from 'react-toastify';
+
+const PackageDetail = () => {
+  const { name } = useParams();
+  const [pkg, setPkg] = useState(null);
+  const [readme, setReadme] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const res = await PackageService.getOne(name);
+            if (res.data && res.data.packages) {
+                 // L'API search retourne une liste, l'API detail peut varier, 
+                 // ici on suppose une logique pour trouver le bon package si l'endpoint change
+                 const found = res.data.packages.find(p => p.name === name) || res.data.packages[0]; 
+                 setPkg(found);
+            } else if (res.data) {
+                 // Si l'endpoint retourne direct l'objet
+                 setPkg(res.data);
+            }
+
+            const readmeRes = await PackageService.getReadme(name);
+            setReadme(readmeRes.data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [name]);
+
+  const copyInstall = () => {
+    navigator.clipboard.writeText(`zenv install ${name}`);
+    toast.success('Install command copied!');
+  };
+
+  if (loading) return <Loader />;
+  if (!pkg) return <div className="text-center py-20 text-white">Package not found.</div>;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="bg-slate-800/50 rounded-2xl p-8 border border-slate-700 mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                <div>
+                    <h1 className="text-4xl font-bold text-white mb-2">{pkg.name}</h1>
+                    <p className="text-xl text-slate-400 mb-4">{pkg.description}</p>
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-300">
+                        <span className="flex items-center gap-1"><User size={16} className="text-blue-400"/> {pkg.author}</span>
+                        <span className="flex items-center gap-1"><Shield size={16} className="text-green-400"/> {pkg.license || 'MIT'}</span>
+                        <span className="flex items-center gap-1"><Calendar size={16} className="text-purple-400"/> v{pkg.version}</span>
+                    </div>
+                </div>
+                
+                <div className="w-full md:w-auto flex flex-col gap-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-1 flex items-center">
+                        <code className="px-3 text-blue-300 font-mono text-sm">$ zenv install {pkg.name}</code>
+                        <button onClick={copyInstall} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white">
+                            <Copy size={16} />
+                        </button>
+                    </div>
+                    <a 
+                        href={`https://zenv-hub.onrender.com/api/packages/download/${name}/${pkg.version}`}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                        <Download size={18} /> Download .zv
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+            {/* Readme Content */}
+            <div className="lg:col-span-2">
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6 border-b border-slate-800 pb-2">README</h2>
+                    <div 
+                        className="prose prose-invert max-w-none prose-pre:bg-slate-950 prose-pre:border prose-pre:border-slate-800"
+                        dangerouslySetInnerHTML={{ __html: readme || '<p>No README available.</p>' }}
+                    />
+                </div>
+            </div>
+
+            {/* Sidebar Stats */}
+            <div className="space-y-6">
+                <div className="bg-slate-800/30 rounded-xl border border-slate-700 p-6">
+                    <h3 className="font-bold text-white mb-4">Metadata</h3>
+                    <ul className="space-y-3 text-sm text-slate-400">
+                        <li className="flex justify-between">
+                            <span>Version</span>
+                            <span className="text-white">{pkg.version}</span>
+                        </li>
+                        <li className="flex justify-between">
+                            <span>License</span>
+                            <span className="text-white">{pkg.license || 'MIT'}</span>
+                        </li>
+                        <li className="flex justify-between">
+                            <span>Size</span>
+                            <span className="text-white">{pkg.size ? (pkg.size / 1024).toFixed(1) + ' KB' : 'Unknown'}</span>
+                        </li>
+                        <li className="flex justify-between">
+                            <span>Downloads</span>
+                            <span className="text-white">{pkg.downloads_count || 0}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div className="bg-slate-800/30 rounded-xl border border-slate-700 p-6">
+                    <h3 className="font-bold text-white mb-4">Badges</h3>
+                    <p className="text-sm text-slate-400 mb-4">Use this badge in your repository.</p>
+                    <img src={BadgeService.getSvgUrl(pkg.name) || `https://zenv-hub.onrender.com/badge/custom/${pkg.name}/${pkg.version}`} alt="badge" className="mb-2" />
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+export default PackageDetail;
+"""
+        self.write_file("src/pages/PackageDetail.jsx", content)
+
+    def write_auth_pages(self):
+        # LOGIN
+        content_login = """
+import React, { useState } from 'react';
+import { AuthService } from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { Terminal } from 'lucide-react';
+
+const Login = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await AuthService.login({ username, password });
+      localStorage.setItem('zenv_token', res.data.token.access_token);
+      toast.success('Welcome back!');
+      navigate('/');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Login failed');
+    }
+  };
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-slate-800/50 p-8 rounded-2xl border border-slate-700 shadow-xl">
+        <div className="text-center mb-8">
+            <div className="inline-block p-3 bg-blue-600/20 rounded-xl mb-4 text-blue-500">
+                <Terminal size={32} />
+            </div>
+            <h2 className="text-3xl font-bold text-white">Welcome back</h2>
+            <p className="text-slate-400 mt-2">Sign in to your Zenv account</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+            <input
+              type="text"
+              required
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+            <input
+              type="password"
+              required
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            Sign In
+          </button>
+        </form>
+        
+        <p className="mt-6 text-center text-slate-400 text-sm">
+            Don't have an account? <Link to="/register" className="text-blue-400 hover:underline">Sign up</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+"""
+        self.write_file("src/pages/Login.jsx", content_login)
+
+        # REGISTER
+        content_register = """
+import React, { useState } from 'react';
+import { AuthService } from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+
+const Register = () => {
+  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await AuthService.register(formData);
+      toast.success('Account created! Please login.');
+      navigate('/login');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Registration failed');
+    }
+  };
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-slate-800/50 p-8 rounded-2xl border border-slate-700 shadow-xl">
+        <h2 className="text-3xl font-bold text-white text-center mb-8">Create Account</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+            <input
+              type="text"
+              required
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              value={formData.username}
+              onChange={(e) => setFormData({...formData, username: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <input
+              type="email"
+              required
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+            <input
+              type="password"
+              required
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors mt-4"
+          >
+            Create Account
+          </button>
+        </form>
+         <p className="mt-6 text-center text-slate-400 text-sm">
+            Already have an account? <Link to="/login" className="text-blue-400 hover:underline">Sign in</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
+"""
+        self.write_file("src/pages/Register.jsx", content_register)
+
+    def write_utils(self):
+        # Placeholder pour utils si besoin
+        self.write_file("src/utils/helpers.js", "export const formatDate = (date) => new Date(date).toLocaleDateString();")
+        
+    def write_badge_preview_component(self):
+        # Component is actually inside Badges page for simplicity in this script version
+        pass
+
+    def write_gitignore(self):
+        content = """
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+lib-cov
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+# Comment in the public line in if your project uses Gatsby and not Next.js
+# public
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+"""
+        self.write_file(".gitignore", content)
+
+    def write_readme(self):
+        content = """
+# Zenv Hub Frontend
+
+React/Vite frontend for the Zenv Package Manager Hub.
+
+## Deployment
+
+This project is designed to be deployed on **Cloudflare Pages**.
+
+1. Push to GitHub.
+2. Connect GitHub repo to Cloudflare Pages.
+3. Settings:
+   - **Framework Preset**: Vite
+   - **Build command**: `npm run build`
+   - **Output directory**: `dist`
+   - **Environment Variables**: None required (API URL is hardcoded to Render).
+
+## Features
+
+- **Terminal Emulator**: Interact with the Zenv CLI directly in the browser.
+- **Badge Workshop**: Create and customize SVG badges for your README.
+- **Package Search**: Real-time integration with `zenv-hub.onrender.com`.
+- **Documentation**: Integrated docs for `zenv` and `zenv[core]`.
+"""
+        self.write_file("README.md", content)
+
+if __name__ == "__main__":
+    generator = ProjectGenerator()
+    generator.generate()

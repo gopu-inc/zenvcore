@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: ZenvCore
+Version: 1.0.0
+Summary: Zenv Package Manager - Core functionality with znv CLI
+Home-page: https://github.com/gopu-inc/zenvcore
+Author: Gopu.Inc
+Author-email: ceoseshell@gmail.com
+License: MIT
+Keywords: package-manager,zenv,package,distribution,cli
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Operating System :: OS Independent
+Classifier: Environment :: Console
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests>=2.28.0
+Requires-Dist: toml>=0.10.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# zenvcore
+Le module pour publier le package zenv hub

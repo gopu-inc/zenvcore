@@ -1,0 +1,11 @@
+LICENSE
+README.md
+setup.py
+ZenvCore.egg-info/PKG-INFO
+ZenvCore.egg-info/SOURCES.txt
+ZenvCore.egg-info/dependency_links.txt
+ZenvCore.egg-info/entry_points.txt
+ZenvCore.egg-info/requires.txt
+ZenvCore.egg-info/top_level.txt
+zenv/__init__.py
+zenv/cli.py
