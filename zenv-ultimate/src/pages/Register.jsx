@@ -1,0 +1,1 @@
+import React from 'react'; export default function Register(){return <div className='p-20 text-center'>Register Page</div>}

@@ -1,0 +1,1 @@
+export default function Loader(){return <div className='p-10 text-center text-blue-500'>Loading Zenv Protocol...</div>}

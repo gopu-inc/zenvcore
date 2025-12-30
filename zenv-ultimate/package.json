@@ -1,7 +1,7 @@
 {
-  "name": "zenv-frontend",
+  "name": "zenv-web-ultimate",
   "private": true,
-  "version": "2.2.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,13 +10,15 @@
   },
   "dependencies": {
     "axios": "^1.6.7",
-    "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
-    "react-console-emulator": "^5.0.3",
     "react-toastify": "^10.0.4",
-    "framer-motion": "^11.0.3",
+    "lucide-react": "^0.330.0",
+    "fflate": "^0.8.2", 
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "react-markdown": "^9.0.1",
     "date-fns": "^3.3.1"
   },
   "devDependencies": {

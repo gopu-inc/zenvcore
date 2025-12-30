@@ -1,0 +1,1 @@
+import React from 'react'; export default function Docs(){return <div className='p-20 max-w-3xl mx-auto prose prose-invert'><h1>Docs</h1><p>Install Zenv via pip.</p></div>}

@@ -17,11 +17,11 @@ import Register from './pages/Register';
 import Docs from './pages/Docs';
 import Badges from './pages/Badges';
 
-function App() {
+export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen bg-black">
           <Navbar />
           <main className="flex-grow">
             <Routes>
@@ -32,17 +32,13 @@ function App() {
               <Route path="/badges" element={<Badges />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute><Dashboard /></ProtectedRoute>
-              } />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             </Routes>
           </main>
           <Footer />
-          <ToastContainer position="bottom-right" theme="dark" />
+          <ToastContainer theme="dark" position="bottom-right"/>
         </div>
       </BrowserRouter>
     </AuthProvider>
   );
 }
-
-export default App;
