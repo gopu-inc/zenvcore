@@ -4,356 +4,537 @@ root_dir = "zenv-ultimate"
 
 def write_file(path, content):
     full_path = os.path.join(root_dir, path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
     try:
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(content.strip())
-        print(f"✨ Amélioré : {path}")
+        print(f"✅ Généré : {path}")
     except Exception as e:
-        print(f"❌ Erreur sur {path}: {e}")
+        print(f"❌ Erreur : {e}")
 
 if not os.path.exists(root_dir):
-    print(f"❌ Dossier {root_dir} introuvable.")
-    exit(1)
+    os.makedirs(root_dir)
 
-print(f"💎 MISE À JOUR DU DESIGN & DES STATISTIQUES...")
+print("🖥️  INITIALISATION DE ZENV OS (INTERFACE BUREAU)...")
 
-# 1. PAGE EXPLORER / PACKAGES (AVEC STATS GLOBALES)
-packages_jsx = """
-import React, { useEffect, useState } from 'react';
-import { PackageService } from '../services/api';
-import { Link } from 'react-router-dom';
-import Loader from '../components/Loader';
-import { Search, Package, TrendingUp, Calendar, Download, Crown, User } from 'lucide-react';
+# 1. DEPENDANCES (Framer Motion pour les fenêtres)
+package_json = """
+{
+  "name": "zenv-os",
+  "private": true,
+  "version": "4.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "react-toastify": "^10.0.4",
+    "lucide-react": "^0.330.0",
+    "framer-motion": "^11.0.3",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "react-markdown": "^9.0.1",
+    "date-fns": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.4"
+  }
+}
+"""
+write_file("package.json", package_json)
 
-const Packages = () => {
-  const [pkgs, setPkgs] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
+# 2. CONFIG TAILWIND (PROPRE)
+write_file("tailwind.config.js", """
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        os: {
+          bg: '#0f172a',
+          panel: '#1e293b',
+          border: '#334155',
+          active: '#3b82f6'
+        }
+      }
+    },
+  },
+  plugins: [],
+}
+""")
+
+# 3. API SERVICE (Correction de l'auth et du Readme)
+api_js = """
+import axios from 'axios';
+
+const API_URL = "https://zenv-hub.onrender.com";
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 40000
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('zenv_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const API = {
+  // Récupère tout et filtre
+  getPackages: async () => {
+    // Si /api/packages échoue, on tente la racine au cas où
+    try {
+        const res = await api.get('/api/packages');
+        return res.data.packages || res.data || [];
+    } catch {
+        return [];
+    }
+  },
   
-  // Stats
-  const [topPkg, setTopPkg] = useState(null);
-  const [recentPkg, setRecentPkg] = useState(null);
+  // CORRECTION README: Force le texte brut pour analyse
+  getReadme: (name) => api.get(`/api/readme/${name}`, { responseType: 'text' }),
+  
+  auth: {
+    // Force le JSON strict pour Python
+    login: (data) => api.post('/api/auth/login', JSON.stringify(data)),
+    register: (data) => api.post('/api/auth/register', JSON.stringify(data)),
+    profile: () => api.get('/api/auth/profile'),
+    genToken: () => api.post('/api/tokens/generate')
+  }
+};
+"""
+write_file("src/services/api.js", api_js)
+
+# 4. LE CŒUR DE L'OS (Window Manager)
+window_manager_jsx = """
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Minus, Square } from 'lucide-react';
+
+export const Window = ({ id, title, children, isOpen, onClose, isActive, onFocus, icon: Icon }) => {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      drag
+      dragMomentum={false}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.8, opacity: 0 }}
+      onMouseDown={onFocus}
+      className={`absolute top-10 left-10 w-[800px] h-[500px] bg-[#1e1e1e] rounded-lg shadow-2xl border overflow-hidden flex flex-col ${
+        isActive ? 'border-blue-500 z-50' : 'border-gray-700 z-10'
+      }`}
+      style={{ minWidth: 300, minHeight: 200 }}
+    >
+      {/* Title Bar */}
+      <div className={`h-10 px-4 flex items-center justify-between select-none ${isActive ? 'bg-[#2d2d2d]' : 'bg-[#1a1a1a]'}`}>
+        <div className="flex items-center gap-2 text-gray-300">
+          {Icon && <Icon size={16} />}
+          <span className="font-bold text-sm">{title}</span>
+        </div>
+        <div className="flex gap-2">
+           <button onClick={onClose} className="hover:bg-red-500 p-1 rounded text-white"><X size={14}/></button>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 overflow-auto bg-[#0a0a0a] relative">
+        {children}
+      </div>
+    </motion.div>
+  );
+};
+"""
+write_file("src/components/OS/Window.jsx", window_manager_jsx)
+
+# 5. APP 1: BROWSER (EXPLORATEUR DE PAQUETS AVEC FIX README)
+browser_jsx = """
+import React, { useState, useEffect } from 'react';
+import { API } from '../../services/api';
+import { Search, Package, Download, Terminal, ArrowLeft } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+
+// Composant Magique pour afficher le HTML brut du README
+const ReadmeViewer = ({ content }) => {
+  // Si c'est du HTML (commence par doctype ou contient <html>)
+  if (content.trim().toLowerCase().startsWith('<!doctype') || content.includes('<html')) {
+     return (
+        <div className="w-full h-full bg-white rounded-lg overflow-hidden border border-gray-700">
+            <iframe 
+                srcDoc={content} 
+                className="w-full h-full" 
+                title="Readme"
+                sandbox="allow-scripts" // Sécurité
+            />
+        </div>
+     );
+  }
+  // Sinon Markdown
+  return <div className="prose prose-invert max-w-none p-4"><ReactMarkdown>{content}</ReactMarkdown></div>;
+};
+
+const BrowserApp = () => {
+  const [pkgs, setPkgs] = useState([]);
+  const [view, setView] = useState('list'); // list | detail
+  const [selected, setSelected] = useState(null);
+  const [readme, setReadme] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-        setLoading(true);
-        try {
-            // On récupère tout
-            const data = await PackageService.getAll();
-            setPkgs(data);
-            setFiltered(data);
-
-            // Calcul du Top Package (Le plus téléchargé)
-            if (data.length > 0) {
-                const sortedByDl = [...data].sort((a, b) => (b.downloads_count || 0) - (a.downloads_count || 0));
-                setTopPkg(sortedByDl[0]);
-
-                // Calcul du plus récent
-                // On suppose qu'il y a un champ updated_at, sinon on prend le dernier de la liste
-                const sortedByDate = [...data].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
-                setRecentPkg(sortedByDate[0]);
-            }
-        } catch (e) { console.error(e); }
-        setLoading(false);
-    };
-    load();
+    loadPkgs();
   }, []);
 
-  const handleSearch = (e) => {
-    const q = e.target.value.toLowerCase();
-    setQuery(q);
-    setFiltered(pkgs.filter(p => 
-        p.name.toLowerCase().includes(q) || 
-        (p.description && p.description.toLowerCase().includes(q))
-    ));
+  const loadPkgs = async () => {
+    setLoading(true);
+    const data = await API.getPackages();
+    setPkgs(data);
+    setLoading(false);
+  };
+
+  const openPackage = async (pkg) => {
+    setSelected(pkg);
+    setView('detail');
+    setReadme('Chargement...');
+    try {
+        const res = await API.getReadme(pkg.name);
+        setReadme(res.data || "<h1>Aucun README</h1>");
+    } catch {
+        setReadme("Erreur de chargement du README");
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-        
-        {/* HEADER STATS */}
-        {!loading && pkgs.length > 0 && (
-            <div className="grid md:grid-cols-2 gap-6 mb-12">
-                {/* CARTE DU ROI (TOP DOWNLOAD) */}
-                {topPkg && (
-                    <div className="bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-600/30 p-6 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                            <Crown size={100} />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 text-yellow-500 mb-2 font-bold uppercase tracking-widest text-xs">
-                                <Crown size={16}/> Le plus populaire
-                            </div>
-                            <h2 className="text-3xl font-black text-white mb-2">{topPkg.name}</h2>
-                            <p className="text-gray-300 line-clamp-2 mb-4">{topPkg.description}</p>
-                            <div className="flex items-center gap-4 text-sm text-yellow-200/80 mb-6">
-                                <span className="flex items-center gap-1"><Download size={16}/> {topPkg.downloads_count} téléchargements</span>
-                                <span className="flex items-center gap-1"><User size={16}/> {topPkg.author}</span>
-                            </div>
-                            <Link to={`/packages/${topPkg.name}`} className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-2 px-6 rounded-lg transition-colors">
-                                Voir le Champion
-                            </Link>
-                        </div>
-                    </div>
-                )}
-
-                {/* CARTE TENDANCE (RÉCENT) */}
-                {recentPkg && (
-                    <div className="bg-gradient-to-br from-blue-900/40 to-black border border-blue-600/30 p-6 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                            <TrendingUp size={100} />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 text-blue-400 mb-2 font-bold uppercase tracking-widest text-xs">
-                                <TrendingUp size={16}/> Dernière Sortie
-                            </div>
-                            <h2 className="text-3xl font-black text-white mb-2">{recentPkg.name}</h2>
-                            <p className="text-gray-300 line-clamp-2 mb-4">{recentPkg.description}</p>
-                            <div className="flex items-center gap-4 text-sm text-blue-200/80 mb-6">
-                                <span className="flex items-center gap-1"><Calendar size={16}/> v{recentPkg.version}</span>
-                                <span className="bg-blue-500/20 px-2 py-0.5 rounded text-blue-300 text-xs">Nouveau</span>
-                            </div>
-                            <Link to={`/packages/${recentPkg.name}`} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition-colors">
-                                Découvrir
-                            </Link>
-                        </div>
-                    </div>
-                )}
-            </div>
+    <div className="h-full flex flex-col text-white">
+      {/* Toolbar */}
+      <div className="h-12 border-b border-gray-800 flex items-center px-4 gap-4 bg-[#1a1a1a]">
+        {view === 'detail' && (
+            <button onClick={() => setView('list')} className="p-2 hover:bg-gray-700 rounded"><ArrowLeft size={18}/></button>
         )}
-
-        {/* BARRE DE RECHERCHE */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 sticky top-20 z-30 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-border">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Package className="text-gray-500"/> Explorateur
-                <span className="bg-gray-800 text-xs text-gray-400 px-2 py-1 rounded-full">{filtered.length}</span>
-            </h1>
-            <div className="relative w-full md:w-96">
-                <input 
-                    className="w-full bg-[#18181b] border border-border rounded-lg pl-10 pr-4 py-3 text-white outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                    placeholder="Python, Web, Utils..."
-                    value={query}
-                    onChange={handleSearch}
-                />
-                <Search className="absolute left-3 top-3.5 text-gray-500" size={18} />
-            </div>
+        <div className="flex-1 bg-black/50 rounded flex items-center px-3 py-1 border border-gray-700">
+            <Search size={14} className="text-gray-500 mr-2"/>
+            <input placeholder="Search Zenv Hub..." className="bg-transparent outline-none w-full text-sm"/>
         </div>
+      </div>
 
-        {/* GRILLE DE PAQUETS */}
-        {loading ? <Loader /> : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map(p => (
-                    <Link key={p.name} to={`/packages/${p.name}`} className="bg-[#18181b] border border-[#27272a] p-6 rounded-xl hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all group flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-primary/10 text-primary rounded-lg group-hover:scale-110 transition-transform">
-                                <Package size={24} />
-                            </div>
-                            <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded font-mono">v{p.version}</span>
+      <div className="flex-1 overflow-auto p-4">
+        {loading && <div className="text-center p-10">Chargement du Hub...</div>}
+        
+        {view === 'list' && !loading && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {pkgs.map(p => (
+                    <div key={p.name} onClick={() => openPackage(p)} className="bg-[#2d2d2d] p-4 rounded-lg cursor-pointer hover:bg-blue-600/20 hover:border-blue-500 border border-transparent transition-all group">
+                        <div className="flex justify-between items-start mb-2">
+                            <Package className="text-blue-400 group-hover:scale-110 transition-transform"/>
+                            <span className="text-xs bg-black px-2 py-0.5 rounded text-gray-400">v{p.version}</span>
                         </div>
-                        
-                        <h2 className="font-bold text-xl mb-2 text-white group-hover:text-primary transition-colors">{p.name}</h2>
-                        <p className="text-sm text-gray-400 mb-6 flex-grow line-clamp-3">{p.description || "Aucune description fournie par l'auteur."}</p>
-                        
-                        <div className="pt-4 border-t border-gray-800 flex justify-between items-center text-xs text-gray-500">
-                             <div className="flex items-center gap-1">
-                                <User size={12}/> {p.author || 'Inconnu'}
-                             </div>
-                             <div className="flex items-center gap-1">
-                                <Download size={12}/> {p.downloads_count || 0}
-                             </div>
-                        </div>
-                    </Link>
-                ))}
-                
-                {filtered.length === 0 && !loading && (
-                    <div className="col-span-full py-20 text-center text-gray-500">
-                        Aucun paquet ne correspond à "{query}".
+                        <h3 className="font-bold text-lg">{p.name}</h3>
+                        <p className="text-gray-400 text-xs line-clamp-2 mt-1">{p.description}</p>
                     </div>
-                )}
+                ))}
             </div>
         )}
+
+        {view === 'detail' && selected && (
+            <div className="h-full flex flex-col">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+                    <div>
+                        <h1 className="text-3xl font-bold flex items-center gap-2">{selected.name}</h1>
+                        <p className="text-gray-400">{selected.description}</p>
+                    </div>
+                    <div className="bg-black p-3 rounded font-mono text-green-400 text-sm border border-gray-700">
+                        znv install {selected.name}
+                    </div>
+                </div>
+                
+                <div className="flex-1 bg-[#111] rounded-lg border border-gray-800 overflow-hidden">
+                    <ReadmeViewer content={readme} />
+                </div>
+            </div>
+        )}
+      </div>
     </div>
   );
 };
-export default Packages;
+export default BrowserApp;
 """
-write_file("src/pages/Packages.jsx", packages_jsx)
+write_file("src/apps/BrowserApp.jsx", browser_jsx)
 
-# 2. DASHBOARD UTILISATEUR AVANCÉ
-dashboard_jsx = """
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { AuthService, PackageService } from '../services/api';
+# 6. APP 2: ACCOUNT (LOGIN/REGISTER CORRIGÉ)
+account_jsx = """
+import React, { useState, useEffect } from 'react';
+import { API } from '../../services/api';
 import { toast } from 'react-toastify';
-import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, Key, User, Box, Download, Plus, ShieldCheck } from 'lucide-react';
+import { User, LogIn, UserPlus, Key } from 'lucide-react';
 
-const Dashboard = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [token, setToken] = useState('');
-  const [myPackages, setMyPackages] = useState([]);
-  const [loadingPkgs, setLoadingPkgs] = useState(true);
-  const [stats, setStats] = useState({ downloads: 0, count: 0 });
+const AccountApp = () => {
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('login'); // login | register | dash
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
 
   useEffect(() => {
-    if (user) {
-        // Charge les paquets et filtre ceux de l'utilisateur
-        PackageService.getAll().then(data => {
-            const mine = data.filter(p => p.author === user.username);
-            setMyPackages(mine);
-            
-            // Calcul des stats
-            const totalDl = mine.reduce((acc, curr) => acc + (curr.downloads_count || 0), 0);
-            setStats({ downloads: totalDl, count: mine.length });
-            
-            setLoadingPkgs(false);
-        }).catch(() => setLoadingPkgs(false));
-    }
-  }, [user]);
+    // Check auto login
+    const t = localStorage.getItem('zenv_token');
+    if(t) fetchProfile();
+  }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-    toast.info("Déconnexion réussie");
+  const fetchProfile = () => {
+      API.auth.profile().then(res => {
+          setUser(res.data.user);
+          setView('dash');
+      }).catch(() => {
+          localStorage.removeItem('zenv_token');
+          setView('login');
+      });
   };
 
-  const genToken = async () => {
+  const handleRegister = async (e) => {
+    e.preventDefault();
     try {
-        const res = await AuthService.generateToken();
-        setToken(res.data.token);
-        toast.success('Nouveau token généré !');
-    } catch { toast.error('Erreur lors de la génération'); }
+        // Envoi strict
+        await API.auth.register({
+            username: form.username,
+            email: form.email,
+            password: form.password
+        });
+        toast.success("Compte créé ! Connectez-vous.");
+        setView('login');
+    } catch (err) {
+        console.error(err);
+        toast.error("Erreur d'inscription. Vérifiez les champs.");
+    }
   };
 
-  const copyToken = () => {
-      navigator.clipboard.writeText(token);
-      toast.success('Copié !');
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+        const res = await API.auth.login({
+            username: form.username,
+            password: form.password
+        });
+        localStorage.setItem('zenv_token', res.data.token.access_token);
+        fetchProfile();
+        toast.success("Connecté !");
+    } catch {
+        toast.error("Identifiants incorrects");
+    }
   };
 
-  if (!user) return null;
+  if (view === 'dash' && user) {
+      return (
+          <div className="p-8 text-white h-full flex flex-col items-center justify-center">
+              <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold mb-4">
+                {user.username[0].toUpperCase()}
+              </div>
+              <h1 className="text-2xl font-bold mb-2">Bienvenue, {user.username}</h1>
+              <p className="text-gray-400 mb-8">{user.email}</p>
+              
+              <div className="w-full max-w-md bg-[#2d2d2d] p-6 rounded-lg border border-gray-700">
+                <h3 className="font-bold flex items-center gap-2 mb-4"><Key size={16}/> API Token</h3>
+                <button onClick={() => API.auth.genToken().then(() => toast.success("Token généré !"))} className="w-full bg-blue-600 py-2 rounded font-bold hover:bg-blue-500">
+                    Générer un nouveau Token
+                </button>
+              </div>
+              
+              <button onClick={() => { localStorage.removeItem('zenv_token'); setUser(null); setView('login'); }} className="mt-8 text-red-400 hover:underline">
+                Déconnexion
+              </button>
+          </div>
+      );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4 border-b border-gray-800 pb-8">
-            <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-2xl font-bold">
-                    {user.username.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                    <h1 className="text-3xl font-bold text-white">{user.username}</h1>
-                    <p className="text-gray-400">{user.email}</p>
-                    <span className="inline-block mt-2 px-2 py-0.5 rounded bg-green-900/30 text-green-400 text-xs border border-green-500/30">
-                        {user.role === 'admin' ? 'Administrateur' : 'Développeur'}
-                    </span>
-                </div>
-            </div>
-            <button onClick={handleLogout} className="flex items-center gap-2 text-red-400 hover:text-white hover:bg-red-600 px-4 py-2 rounded-lg transition-all border border-red-500/30">
-                <LogOut size={16}/> Déconnexion
-            </button>
-        </div>
+    <div className="p-8 h-full flex items-center justify-center text-white">
+      <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="w-full max-w-sm space-y-4">
+        <h1 className="text-3xl font-bold text-center mb-8">{view === 'login' ? 'Connexion' : 'Inscription'}</h1>
         
-        {/* STATS GRID */}
-        <div className="grid md:grid-cols-3 gap-6 mb-10">
-            <div className="bg-[#18181b] border border-[#27272a] p-6 rounded-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10"><Box size={64}/></div>
-                <h3 className="text-gray-400 text-sm mb-1">Mes Paquets</h3>
-                <p className="text-4xl font-black text-white">{stats.count}</p>
-            </div>
-            <div className="bg-[#18181b] border border-[#27272a] p-6 rounded-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10"><Download size={64}/></div>
-                <h3 className="text-gray-400 text-sm mb-1">Téléchargements Totaux</h3>
-                <p className="text-4xl font-black text-blue-400">{stats.downloads}</p>
-            </div>
-            <div className="bg-[#18181b] border border-[#27272a] p-6 rounded-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldCheck size={64}/></div>
-                <h3 className="text-gray-400 text-sm mb-1">Status du Compte</h3>
-                <p className="text-2xl font-bold text-green-400 mt-2">Actif</p>
-            </div>
+        <div className="space-y-2">
+            <input 
+                className="w-full bg-black/50 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none"
+                placeholder="Nom d'utilisateur"
+                value={form.username}
+                onChange={e => setForm({...form, username: e.target.value})}
+            />
+            {view === 'register' && (
+                <input 
+                    className="w-full bg-black/50 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none"
+                    placeholder="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm({...form, email: e.target.value})}
+                />
+            )}
+            <input 
+                className="w-full bg-black/50 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none"
+                placeholder="Mot de passe"
+                type="password"
+                value={form.password}
+                onChange={e => setForm({...form, password: e.target.value})}
+            />
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-            
-            {/* COLONNE GAUCHE : MES PAQUETS */}
-            <div className="lg:col-span-2">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2"><Box className="text-blue-500"/> Mes Publications</h2>
-                    {/* Note: Le bouton publier renvoie vers la doc car on publie via CLI */}
-                    <Link to="/docs" className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
-                        <Plus size={14}/> Publier un paquet
-                    </Link>
-                </div>
+        <button className="w-full bg-blue-600 py-3 rounded font-bold hover:bg-blue-500 transition-colors">
+            {view === 'login' ? 'Se connecter' : "S'inscrire"}
+        </button>
 
-                <div className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden">
-                    {loadingPkgs ? (
-                        <div className="p-8 text-center text-gray-500">Chargement de vos données...</div>
-                    ) : myPackages.length > 0 ? (
-                        <div className="divide-y divide-gray-800">
-                            {myPackages.map(p => (
-                                <div key={p.name} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                    <div>
-                                        <Link to={`/packages/${p.name}`} className="font-bold text-white hover:text-blue-400 hover:underline">{p.name}</Link>
-                                        <p className="text-xs text-gray-500">v{p.version} • Mis à jour le {new Date(p.updated_at || Date.now()).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                                        <span className="flex items-center gap-1"><Download size={14}/> {p.downloads_count}</span>
-                                        <span className="px-2 py-0.5 bg-gray-800 rounded text-xs">{p.license}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="p-10 text-center">
-                            <Box size={48} className="mx-auto text-gray-700 mb-4"/>
-                            <p className="text-gray-400 mb-2">Vous n'avez pas encore publié de paquet.</p>
-                            <Link to="/docs" className="text-blue-400 hover:underline text-sm">Comment publier mon premier paquet ?</Link>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* COLONNE DROITE : API TOKEN */}
-            <div>
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Key className="text-yellow-500"/> Clé API</h2>
-                <div className="bg-[#18181b] border border-[#27272a] p-6 rounded-xl">
-                    <p className="text-gray-400 text-sm mb-6">
-                        Cette clé est nécessaire pour publier des paquets via le CLI Zenv.
-                        <br/><code className="text-blue-400 bg-blue-900/20 px-1">zenv auth &lt;token&gt;</code>
-                    </p>
-                    
-                    {!token ? (
-                        <button onClick={genToken} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors shadow-lg shadow-blue-900/20">
-                            Générer une clé
-                        </button>
-                    ) : (
-                        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                            <p className="text-xs text-green-400 mb-2 font-bold uppercase tracking-wider">Nouvelle clé générée</p>
-                            <div className="flex gap-2 items-center">
-                                <code className="flex-1 bg-black/50 p-2 rounded text-xs break-all font-mono text-white select-all">{token}</code>
-                                <button onClick={copyToken} className="p-2 bg-white/10 hover:bg-white/20 rounded text-white" title="Copier">
-                                    <Key size={16} />
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">Copiez-la maintenant. Elle ne sera plus affichée.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+        <p className="text-center text-sm text-gray-500 mt-4 cursor-pointer hover:text-white" onClick={() => setView(view === 'login' ? 'register' : 'login')}>
+            {view === 'login' ? "Pas de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
+        </p>
+      </form>
     </div>
   );
 };
-export default Dashboard;
+export default AccountApp;
 """
-write_file("src/pages/Dashboard.jsx", dashboard_jsx)
+write_file("src/apps/AccountApp.jsx", account_jsx)
 
-print("\n" + "="*50)
-print("✅ AMÉLIORATION UI TERMINÉE")
-print("="*50)
+# 7. APP 3: TERMINAL (XTERM)
+terminal_jsx = """
+import React, { useEffect, useRef } from 'react';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
+
+const TerminalApp = () => {
+    const termRef = useRef(null);
+    
+    useEffect(() => {
+        const term = new Terminal({
+            theme: { background: '#0a0a0a' },
+            fontFamily: 'monospace',
+            cursorBlink: true
+        });
+        const fit = new FitAddon();
+        term.loadAddon(fit);
+        term.open(termRef.current);
+        fit.fit();
+        
+        term.writeln('\\x1b[32mZenvOS v4.0.0\\x1b[0m');
+        term.writeln('Welcome to the Zenv Virtual Environment.');
+        term.write('\\r\\n$ ');
+        
+        term.onData(e => {
+            if(e === '\\r') term.write('\\r\\n$ ');
+            else term.write(e);
+        });
+
+        const handleResize = () => fit.fit();
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            term.dispose();
+        }
+    }, []);
+
+    return <div className="h-full w-full bg-[#0a0a0a]" ref={termRef} />;
+};
+export default TerminalApp;
+"""
+write_file("src/apps/TerminalApp.jsx", terminal_jsx)
+
+# 8. MAIN APP (OS DESKTOP)
+app_jsx = """
+import React, { useState } from 'react';
+import { Window } from './components/OS/Window';
+import BrowserApp from './apps/BrowserApp';
+import AccountApp from './apps/AccountApp';
+import TerminalApp from './apps/TerminalApp';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { Package, User, Terminal as TermIcon, Disc } from 'lucide-react';
+
+export default function App() {
+  const [windows, setWindows] = useState({
+    browser: { isOpen: true, z: 1, title: 'Zenv Explorer', icon: Package, component: <BrowserApp /> },
+    account: { isOpen: false, z: 2, title: 'Compte & Settings', icon: User, component: <AccountApp /> },
+    terminal: { isOpen: false, z: 3, title: 'Terminal', icon: TermIcon, component: <TerminalApp /> }
+  });
+
+  const openWindow = (key) => {
+    setWindows(prev => ({
+        ...prev,
+        [key]: { ...prev[key], isOpen: true, z: Math.max(...Object.values(prev).map(w => w.z)) + 1 }
+    }));
+  };
+
+  const closeWindow = (key) => {
+    setWindows(prev => ({ ...prev, [key]: { ...prev[key], isOpen: false } }));
+  };
+
+  const focusWindow = (key) => {
+    setWindows(prev => ({
+        ...prev,
+        [key]: { ...prev[key], z: Math.max(...Object.values(prev).map(w => w.z)) + 1 }
+    }));
+  };
+
+  return (
+    <div className="h-screen w-screen bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center overflow-hidden relative font-sans text-sm selection:bg-blue-500 selection:text-white">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+      
+      {/* WINDOWS */}
+      {Object.entries(windows).map(([key, win]) => (
+        <Window 
+            key={key} 
+            id={key}
+            title={win.title}
+            icon={win.icon}
+            isOpen={win.isOpen}
+            isActive={win.z === Math.max(...Object.values(windows).map(w => w.z))}
+            onClose={() => closeWindow(key)}
+            onFocus={() => focusWindow(key)}
+        >
+            {win.component}
+        </Window>
+      ))}
+
+      {/* TASKBAR */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-2 flex items-center gap-4 z-[100] shadow-2xl">
+        <button onClick={() => openWindow('browser')} className="p-3 bg-blue-600/20 hover:bg-blue-600 rounded-xl transition-all group relative">
+            <Package className="text-blue-400 group-hover:text-white" />
+            <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Explorer</span>
+        </button>
+        <button onClick={() => openWindow('terminal')} className="p-3 bg-gray-800/50 hover:bg-gray-700 rounded-xl transition-all group relative">
+            <TermIcon className="text-green-400 group-hover:text-white" />
+             <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Terminal</span>
+        </button>
+        <button onClick={() => openWindow('account')} className="p-3 bg-purple-600/20 hover:bg-purple-600 rounded-xl transition-all group relative">
+            <User className="text-purple-400 group-hover:text-white" />
+             <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Mon Compte</span>
+        </button>
+      </div>
+
+      <ToastContainer theme="dark" position="top-right" />
+    </div>
+  );
+}
+"""
+write_file("src/App.jsx", app_jsx)
+
+write_file("src/main.jsx", "import React from 'react'; import ReactDOM from 'react-dom/client'; import App from './App.jsx'; import './index.css'; ReactDOM.createRoot(document.getElementById('root')).render(<App />);")
+write_file("src/index.css", "@tailwind base; @tailwind components; @tailwind utilities;")
+write_file("index.html", '<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Zenv OS</title></head><body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body></html>')
+write_file("public/_redirects", "/* /index.html 200")
+write_file(".gitignore", "node_modules\ndist\n.env")
+write_file("vite.config.js", "import { defineConfig } from 'vite'; import react from '@vitejs/plugin-react'; export default defineConfig({ plugins: [react()] });")
+
+print("\n✨ ZENV OS GÉNÉRÉ AVEC SUCCÈS")
 print("1. cd zenv-ultimate")
 print("2. git add .")
-print("3. git commit -m 'Upgrade UI: Dashboard Stats & Explorer Trends'")
+print("3. git commit -m 'UPGRADE TO ZENV OS 4.0'")
 print("4. git push")
-print("="*50)
