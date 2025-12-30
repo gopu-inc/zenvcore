@@ -4,68 +4,29 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
-  const navigate = useNavigate();
+    const [form, setForm] = useState({username:'', email:'', password:''});
+    const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await AuthService.register(formData);
-      toast.success('Account created! Please login.');
-      navigate('/login');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Registration failed');
-    }
-  };
+    const submit = async (e) => {
+        e.preventDefault();
+        try {
+            await AuthService.register(form);
+            toast.success('Account created! Login now.');
+            navigate('/login');
+        } catch { toast.error('Registration failed'); }
+    };
 
-  return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-slate-800/50 p-8 rounded-2xl border border-slate-700 shadow-xl">
-        <h2 className="text-3xl font-bold text-white text-center mb-8">Create Account</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
-            <input
-              type="text"
-              required
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
-            <input
-              type="email"
-              required
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors mt-4"
-          >
-            Create Account
-          </button>
-        </form>
-         <p className="mt-6 text-center text-slate-400 text-sm">
-            Already have an account? <Link to="/login" className="text-blue-400 hover:underline">Sign in</Link>
-        </p>
-      </div>
-    </div>
-  );
+    return (
+        <div className="flex justify-center items-center min-h-[80vh]">
+            <form onSubmit={submit} className="bg-card border border-border p-8 rounded-xl w-full max-w-md space-y-4">
+                <h1 className="text-2xl font-bold text-center">Register</h1>
+                <input className="w-full bg-black/50 border border-border p-3 rounded" placeholder="Username" value={form.username} onChange={e=>setForm({...form, username:e.target.value})} />
+                <input type="email" className="w-full bg-black/50 border border-border p-3 rounded" placeholder="Email" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} />
+                <input type="password" className="w-full bg-black/50 border border-border p-3 rounded" placeholder="Password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} />
+                <button className="w-full bg-white text-black p-3 rounded font-bold hover:bg-gray-200">Sign Up</button>
+                <p className="text-center text-sm text-gray-500">Have account? <Link to="/login" className="text-primary">Login</Link></p>
+            </form>
+        </div>
+    );
 };
-
 export default Register;

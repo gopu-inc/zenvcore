@@ -4,17 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        zenv: {
-          bg: '#0a0a0a',
-          card: '#111111',
-          border: '#333333',
-          primary: '#3b82f6',
-          accent: '#06b6d4'
-        }
+        bg: '#09090b',
+        card: '#18181b',
+        border: '#27272a',
+        primary: '#3b82f6',
       },
       fontFamily: {
         mono: ['Menlo', 'Monaco', 'Courier New', 'monospace'],
-        sans: ['Inter', 'system-ui', 'sans-serif']
+        sans: ['Inter', 'sans-serif']
       }
     },
   },
