@@ -1,1 +1,0 @@
-import React from 'react'; export default function Badges(){return <div className='p-20 text-center'>Badges</div>}
