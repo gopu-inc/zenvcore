@@ -1,0 +1,447 @@
+import os
+
+root_dir = "zenv-ultimate"
+
+def write_file(path, content):
+    full_path = os.path.join(root_dir, path)
+    try:
+        with open(full_path, 'w', encoding='utf-8') as f:
+            f.write(content.strip())
+        print(f"✅ REPARÉ : {path}")
+    except Exception as e:
+        print(f"❌ Erreur sur {path}: {e}")
+
+if not os.path.exists(root_dir):
+    print(f"❌ Erreur : Dossier {root_dir} introuvable.")
+    exit(1)
+
+print("🚑 DÉMARRAGE DU PROTOCOLE D'URGENCE...")
+
+# 1. SERVICES API (AJOUT DE LOGS ET TIMEOUTS)
+api_js = """
+import axios from 'axios';
+
+// L'URL exacte de ton backend Render
+const API_URL = "https://zenv-hub.onrender.com/api";
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  timeout: 60000 // 60 secondes d'attente (pour le réveil de Render)
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('zenv_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error("API Error:", error.response || error.message);
+    return Promise.reject(error);
+  }
+);
+
+export const PackageService = {
+  getAll: () => api.get('/packages'),
+  search: (q) => api.get('/packages/search', { params: { q } }),
+  // On utilise l'endpoint spécifique version ou latest
+  getOne: (name) => api.get(`/packages/${name}/latest`).catch(() => api.get(`/packages/search?q=${name}`)),
+  // Endpoint texte direct (plus sûr que le téléchargement binaire)
+  getReadme: (name) => api.get(`/readme/${name}`),
+  downloadUrl: (name, v) => `${API_URL}/packages/download/${name}/${v}`
+};
+
+export const AuthService = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (data) => api.post('/auth/register', data),
+  getProfile: () => api.get('/auth/profile'),
+  generateToken: () => api.post('/tokens/generate')
+};
+
+export const BadgeService = {
+  getSvg: (name) => `https://zenv-hub.onrender.com/badge/svg/${name}`
+};
+
+export const HealthService = {
+  check: () => api.get('/version')
+};
+
+export default api;
+"""
+write_file("src/services/api.js", api_js)
+
+# 2. PAGE PACKAGES (GESTION DU CHARGEMENT LONG)
+packages_jsx = """
+import React, { useEffect, useState } from 'react';
+import { PackageService, HealthService } from '../services/api';
+import { Link } from 'react-router-dom';
+import Loader from '../components/Loader';
+import { Search, Package, ServerCrash, RefreshCw } from 'lucide-react';
+
+const Packages = () => {
+  const [pkgs, setPkgs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [serverStatus, setServerStatus] = useState('checking');
+
+  const fetchPkgs = async (q = '') => {
+    setLoading(true);
+    setError('');
+    
+    try {
+        const res = q ? await PackageService.search(q) : await PackageService.getAll();
+        // L'API peut renvoyer { packages: [...] } ou directement [...]
+        const data = res.data.packages || res.data || [];
+        setPkgs(Array.isArray(data) ? data : []);
+        setServerStatus('online');
+    } catch (e) { 
+        console.error(e);
+        setError('Impossible de joindre le serveur. Il est peut-être en veille (Render Free Tier).');
+        setServerStatus('offline');
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => { 
+      // Petit check de santé d'abord
+      HealthService.check()
+        .then(() => fetchPkgs())
+        .catch(() => {
+            setError("Le serveur Zenv démarre... Cela peut prendre 1 minute.");
+            // On essaie quand même de charger les paquets après 2s
+            setTimeout(() => fetchPkgs(), 2000);
+        });
+  }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchPkgs(query);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
+            <div>
+                <h1 className="text-3xl font-bold">Packages</h1>
+                {serverStatus === 'online' && <span className="text-green-500 text-xs flex items-center gap-1">● Server Online</span>}
+                {serverStatus === 'offline' && <span className="text-red-500 text-xs flex items-center gap-1">● Server Offline/Sleeping</span>}
+            </div>
+            
+            <form onSubmit={handleSearch} className="relative w-full md:w-96">
+                <input 
+                    className="w-full bg-card border border-border rounded-lg pl-10 pr-4 py-2 focus:ring-1 focus:ring-primary outline-none text-white"
+                    placeholder="Search packages..."
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
+            </form>
+        </div>
+
+        {error && (
+            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-red-200 mb-6 flex items-center gap-3">
+                <ServerCrash />
+                <div>
+                    <p className="font-bold">Erreur de connexion</p>
+                    <p className="text-sm">{error}</p>
+                    <button onClick={() => fetchPkgs(query)} className="mt-2 bg-red-600 px-3 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-500">
+                        <RefreshCw size={12}/> Réessayer
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {loading ? (
+            <div className="text-center py-20">
+                <Loader />
+                <p className="text-gray-500 mt-4 animate-pulse">Connexion au Hub Zenv...</p>
+                <p className="text-xs text-gray-600 mt-2">Si c'est le premier accès, attendez 50s (Render Cold Start)</p>
+            </div>
+        ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pkgs.length > 0 ? pkgs.map(p => (
+                    <Link key={p.name} to={`/packages/${p.name}`} className="bg-card border border-border p-6 rounded-xl hover:border-primary/50 transition-all block">
+                        <div className="flex justify-between mb-4">
+                            <div className="p-2 bg-primary/10 text-primary rounded"><Package /></div>
+                            <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">v{p.version}</span>
+                        </div>
+                        <h2 className="font-bold text-lg mb-1 text-white">{p.name}</h2>
+                        <p className="text-sm text-gray-400 line-clamp-2">{p.description || 'Aucune description'}</p>
+                        <div className="mt-4 pt-4 border-t border-gray-800 text-xs text-gray-500 flex justify-between">
+                            <span>{p.author || 'Inconnu'}</span>
+                            <span>{p.downloads_count || 0} dl</span>
+                        </div>
+                    </Link>
+                )) : (
+                    !error && <div className="col-span-3 text-center py-10 text-gray-500">Aucun package trouvé.</div>
+                )}
+            </div>
+        )}
+    </div>
+  );
+};
+export default Packages;
+"""
+write_file("src/pages/Packages.jsx", packages_jsx)
+
+# 3. PAGE DETAIL (FORCE TEXTE API AU LIEU DE BINAIRE)
+detail_jsx = """
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { PackageService, BadgeService } from '../services/api';
+import Loader from '../components/Loader';
+import ReactMarkdown from 'react-markdown';
+import { Download, Box, FileText, Terminal, Copy } from 'lucide-react';
+import { toast } from 'react-toastify';
+
+const PackageDetail = () => {
+  const { name } = useParams();
+  const [pkg, setPkg] = useState(null);
+  const [readme, setReadme] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+        try {
+            // 1. Récupérer les infos du package
+            // L'API peut retourner un tableau (search) ou un objet
+            let pkgData = null;
+            try {
+                const res = await PackageService.getOne(name);
+                if (res.data.packages && res.data.packages.length > 0) {
+                    pkgData = res.data.packages.find(p => p.name === name) || res.data.packages[0];
+                } else if (res.data && res.data.name) {
+                    pkgData = res.data;
+                }
+            } catch (err) {
+                // Fallback search si getOne échoue
+                const searchRes = await PackageService.search(name);
+                if (searchRes.data.packages) {
+                     pkgData = searchRes.data.packages.find(p => p.name === name);
+                }
+            }
+
+            if (!pkgData) throw new Error("Package not found");
+            setPkg(pkgData);
+
+            // 2. Récupérer le README (Texte seulement pour éviter CORS binaire)
+            try {
+                const rmRes = await PackageService.getReadme(name);
+                setReadme(rmRes.data || "# No README provided");
+            } catch (e) {
+                setReadme("# Failed to load README");
+            }
+
+        } catch (err) {
+            console.error(err);
+            setError('Package introuvable ou erreur serveur.');
+        } finally {
+            setLoading(false);
+        }
+    };
+    load();
+  }, [name]);
+
+  const copyInstall = () => {
+    navigator.clipboard.writeText(`znv install ${name}`);
+    toast.success('Commande copiée !');
+  };
+
+  if (loading) return <Loader />;
+  if (error) return <div className="text-center p-20 text-red-500 bg-black">{error}</div>;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-6 mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+                <h1 className="text-3xl font-bold mb-2 flex items-center gap-2 text-white">
+                    <Box className="text-blue-500"/> {pkg.name}
+                </h1>
+                <p className="text-gray-400 text-lg">{pkg.description}</p>
+                <div className="flex gap-3 mt-4 text-sm font-mono text-gray-500">
+                    <span className="bg-blue-900/20 text-blue-400 px-2 py-1 rounded">v{pkg.version}</span>
+                    <span>{pkg.license || 'MIT'}</span>
+                    <span>{pkg.author || 'Unknown'}</span>
+                </div>
+            </div>
+            <div className="flex flex-col gap-2 w-full md:w-auto">
+                <div className="bg-black p-3 rounded border border-gray-800 flex items-center gap-3 font-mono text-sm text-green-400 cursor-pointer hover:bg-gray-900" onClick={copyInstall}>
+                    <Terminal size={14} />
+                    znv install {pkg.name}
+                    <Copy size={14} className="ml-2 text-gray-500"/>
+                </div>
+                <a 
+                    href={PackageService.downloadUrl(pkg.name, pkg.version)} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-bold text-center flex items-center justify-center gap-2"
+                >
+                    <Download size={16}/> Download .zv
+                </a>
+            </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-6">
+                <h2 className="text-xl font-bold mb-4 border-b border-gray-800 pb-2 flex items-center gap-2 text-white">
+                    <FileText size={20}/> README
+                </h2>
+                <div className="prose prose-invert max-w-none text-gray-300">
+                    <ReactMarkdown>{readme}</ReactMarkdown>
+                </div>
+            </div>
+        </div>
+
+        <div className="space-y-6">
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-6">
+                <h3 className="font-bold mb-4 text-white">Badge</h3>
+                <div className="bg-black p-4 rounded border border-gray-800 flex justify-center">
+                    <img src={BadgeService.getSvg(pkg.name)} alt="badge" />
+                </div>
+                <p className="text-xs text-gray-500 mt-2 text-center">Add to your README</p>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PackageDetail;
+"""
+write_file("src/pages/PackageDetail.jsx", detail_jsx)
+
+# 4. INSCRIPTION (JSON STRICT)
+register_jsx = """
+import React, { useState } from 'react';
+import { AuthService } from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { UserPlus, Mail, Lock, User } from 'lucide-react';
+
+const Register = () => {
+    // Utilisation d'un state strict pour le JSON
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        password: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const submit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        
+        // Validation basique
+        if(!formData.username || !formData.email || !formData.password) {
+            toast.warning("Veuillez remplir tous les champs");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            console.log("Envoi données:", formData);
+            await AuthService.register(formData);
+            toast.success('Compte créé avec succès ! Connectez-vous.');
+            navigate('/login');
+        } catch (err) {
+            console.error(err);
+            const msg = err.response?.data?.error || 'Erreur lors de l\\'inscription';
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="flex justify-center items-center min-h-[80vh] px-4">
+            <form onSubmit={submit} className="bg-card border border-border p-8 rounded-xl w-full max-w-md space-y-6 shadow-2xl">
+                <div className="text-center">
+                    <h1 className="text-3xl font-bold text-white mb-2">Inscription</h1>
+                    <p className="text-gray-400">Rejoignez le Zenv Hub</p>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="relative">
+                        <User className="absolute left-3 top-3 text-gray-500" size={18} />
+                        <input 
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            className="w-full bg-black/50 border border-border p-3 pl-10 rounded text-white focus:border-primary outline-none" 
+                            placeholder="Nom d'utilisateur"
+                        />
+                    </div>
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-3 text-gray-500" size={18} />
+                        <input 
+                            name="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className="w-full bg-black/50 border border-border p-3 pl-10 rounded text-white focus:border-primary outline-none" 
+                            placeholder="Email"
+                        />
+                    </div>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-3 text-gray-500" size={18} />
+                        <input 
+                            name="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            className="w-full bg-black/50 border border-border p-3 pl-10 rounded text-white focus:border-primary outline-none" 
+                            placeholder="Mot de passe"
+                        />
+                    </div>
+                </div>
+
+                <button disabled={loading} className="w-full bg-blue-600 p-3 rounded font-bold hover:bg-blue-700 text-white flex justify-center items-center gap-2 transition-colors">
+                    {loading ? 'Création...' : <><UserPlus size={18}/> Créer mon compte</>}
+                </button>
+                
+                <p className="text-center text-sm text-gray-500">
+                    Déjà un compte ? <Link to="/login" className="text-blue-400 hover:underline">Connexion</Link>
+                </p>
+            </form>
+        </div>
+    );
+};
+export default Register;
+"""
+write_file("src/pages/Register.jsx", register_jsx)
+
+print("="*40)
+print("✅ CORRECTIFS APPLIQUÉS")
+print("="*40)
+print("1. cd zenv-ultimate")
+print("2. git add .")
+print("3. git commit -m 'Emergency Fix: API connection & Auth'")
+print("4. git push")
+print("\n⚠️  IMPORTANT : Après le déploiement, ouvrez le site.")
+print("Si vous voyez 'Connexion au Hub...', ATTENDEZ 1 MINUTE.")
+print("Le serveur Render doit sortir de veille.")
