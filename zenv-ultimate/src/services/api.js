@@ -1,58 +1,62 @@
 import axios from 'axios';
 
-// L'URL exacte de ton backend Render
-const API_URL = "https://zenv-hub.onrender.com/api";
+// URL Backend
+const API_URL = "https://zenv-hub.onrender.com"; // Pas de /api ici, on l'ajoute après si besoin, ou selon tes routes
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Content-Type': 'application/json'
   },
-  timeout: 60000 // 60 secondes d'attente (pour le réveil de Render)
+  timeout: 40000
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('zenv_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
-}, (error) => {
-  return Promise.reject(error);
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error("API Error:", error.response || error.message);
-    return Promise.reject(error);
-  }
-);
-
 export const PackageService = {
-  getAll: () => api.get('/packages'),
-  search: (q) => api.get('/packages/search', { params: { q } }),
-  // On utilise l'endpoint spécifique version ou latest
-  getOne: (name) => api.get(`/packages/${name}/latest`).catch(() => api.get(`/packages/search?q=${name}`)),
-  // Endpoint texte direct (plus sûr que le téléchargement binaire)
-  getReadme: (name) => api.get(`/readme/${name}`),
-  downloadUrl: (name, v) => `${API_URL}/packages/download/${name}/${v}`
+  // Récupère TOUT et renvoie la liste
+  getAll: async () => {
+    // Ton backend sert sur /api/packages
+    const res = await api.get('/api/packages');
+    return res.data.packages || []; 
+  },
+
+  // Simulation de recherche côté client (car pas de route search sur le backend)
+  search: async (query) => {
+    const res = await api.get('/api/packages');
+    const all = res.data.packages || [];
+    if (!query) return all;
+    return all.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+  },
+
+  // Trouve un paquet spécifique via la liste globale
+  getOne: async (name) => {
+    const res = await api.get('/api/packages');
+    const all = res.data.packages || [];
+    const found = all.find(p => p.name === name);
+    if (!found) throw new Error("Package not found");
+    return found;
+  },
+
+  getReadme: (name) => api.get(`/api/readme/${name}`),
+  
+  // Construction de l'URL de téléchargement
+  downloadUrl: (name, v) => `${API_URL}/api/packages/download/${name}/${v}`
 };
 
 export const AuthService = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (data) => api.post('/auth/register', data),
-  getProfile: () => api.get('/auth/profile'),
-  generateToken: () => api.post('/tokens/generate')
+  login: (data) => api.post('/api/auth/login', data),
+  register: (data) => api.post('/api/auth/register', data),
+  getProfile: () => api.get('/api/auth/profile'),
+  generateToken: () => api.post('/api/tokens/generate')
 };
 
 export const BadgeService = {
-  getSvg: (name) => `https://zenv-hub.onrender.com/badge/svg/${name}`
-};
-
-export const HealthService = {
-  check: () => api.get('/version')
+  getSvg: (name) => `${API_URL}/badge/svg/${name}`
 };
 
 export default api;
