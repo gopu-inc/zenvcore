@@ -1,0 +1,641 @@
+import os
+import json
+from pathlib import Path
+
+# Configuration du projet
+PROJECT_NAME = "zenv-web"
+API_URL = "https://zenv-hub.onrender.com"
+
+# Structure des fichiers
+files = {}
+
+# -----------------------------------------------------------------------------
+# 1. CONFIGURATION
+# -----------------------------------------------------------------------------
+
+files["package.json"] = json.dumps({
+  "name": PROJECT_NAME,
+  "version": "2.0.0",
+  "private": True,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "pages:build": "npx @cloudflare/next-on-pages"
+  },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "lucide-react": "^0.330.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "rehype-raw": "^7.0.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.1",
+    "date-fns": "^3.3.1",
+    "sonner": "^1.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.0.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5",
+    "@tailwindcss/typography": "^0.5.10"
+  }
+}, indent=2)
+
+files["tsconfig.json"] = """{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{"name": "next"}],
+    "paths": {"@/*": ["./src/*"]}
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}"""
+
+# Configuration compatible Cloudflare
+files["next.config.js"] = """/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'zenv-hub.onrender.com' },
+      { protocol: 'https', hostname: 'img.shields.io' }
+    ],
+    dangerouslyAllowSVG: true,
+    unoptimized: true, // Important pour Cloudflare Free tier parfois
+  },
+};
+module.exports = nextConfig;"""
+
+files["tailwind.config.ts"] = """import type { Config } from "tailwindcss";
+const config: Config = {
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: "#3b82f6",
+        dark: "#0f172a",
+        darker: "#020617",
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
+};
+export default config;"""
+
+files["postcss.config.js"] = """module.exports = { plugins: { tailwindcss: {}, autoprefixer: {}, }, };"""
+
+files[".gitignore"] = """node_modules
+.next
+.env
+.DS_Store
+dist
+.zenv
+.vercel
+.cloudflare"""
+
+# -----------------------------------------------------------------------------
+# 2. CODE SOURCE (src/)
+# -----------------------------------------------------------------------------
+
+files["src/lib/utils.ts"] = """import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export const API_URL = "https://zenv-hub.onrender.com/api";
+
+export async function fetchPackages() {
+  try {
+    // Revalidate = 0 pour toujours avoir les données fraîches
+    const res = await fetch(`${API_URL}/packages`, { next: { revalidate: 0 } });
+    if (!res.ok) throw new Error('Failed');
+    return res.json();
+  } catch (e) {
+    return { packages: [] };
+  }
+}
+
+export async function fetchPackageDetails(name: string) {
+  try {
+    const encodedName = encodeURIComponent(name);
+    const resInfo = await fetch(`${API_URL}/packages/${encodedName}/latest`, { cache: 'no-store' });
+    const pkg = resInfo.ok ? await resInfo.json() : null;
+
+    if (!pkg) return null;
+
+    let markdownContent = pkg.description || "# No description provided";
+    const resReadme = await fetch(`${API_URL}/readme/${encodedName}`);
+    if (resReadme.ok) {
+        markdownContent = await resReadme.text();
+    }
+
+    return { ...pkg, markdownContent };
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+"""
+
+files["src/app/globals.css"] = """@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 15, 23, 42;
+  --background-end-rgb: 2, 6, 23;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+  min-height: 100vh;
+}
+
+.markdown-body pre {
+  background-color: #1e293b !important;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+"""
+
+files["src/components/Navbar.tsx"] = """import Link from 'next/link';
+import { Package, Terminal } from 'lucide-react';
+
+export default function Navbar() {
+  return (
+    <nav className="border-b border-white/10 bg-dark/50 backdrop-blur-md sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary hover:text-blue-400 transition">
+          <Package className="w-6 h-6" />
+          <span>Zenv Hub</span>
+        </Link>
+
+        <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-300">
+          <Link href="/packages" className="hover:text-white transition">Packages</Link>
+          <Link href="/badges" className="hover:text-white transition">Badges</Link>
+          <Link href="https://pypi.org/project/zenv-lang/" target="_blank" className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full hover:bg-white/20 transition">
+            <Terminal className="w-4 h-4" />
+            <span>Install CLI</span>
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+}"""
+
+files["src/components/Footer.tsx"] = """export default function Footer() {
+  return (
+    <footer className="border-t border-white/10 mt-20 py-10 bg-darker">
+      <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+        <p>© 2024 Zenv Package Manager. Powered by gopu-inc.</p>
+        <p className="mt-2">Backend connected to zenv-hub.onrender.com</p>
+      </div>
+    </footer>
+  );
+}"""
+
+files["src/components/CopyButton.tsx"] = """'use client';
+import { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success('Commande copiée !');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button 
+      onClick={handleCopy}
+      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-md transition"
+    >
+      {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400" />}
+    </button>
+  );
+}"""
+
+files["src/components/MarkdownRenderer.tsx"] = """'use client';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+
+export default function MarkdownRenderer({ content }: { content: string }) {
+  return (
+    <div className="prose prose-invert prose-blue max-w-none">
+      <ReactMarkdown 
+        remarkPlugins={[remarkGfm]} 
+        rehypePlugins={[rehypeRaw]}
+        components={{
+            a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary no-underline hover:underline" />
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}"""
+
+files["src/app/layout.tsx"] = """import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { Toaster } from 'sonner';
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Zenv Package Hub",
+  description: "The official registry for Zenv packages",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Navbar />
+        <main className="min-h-[calc(100vh-200px)]">
+          {children}
+        </main>
+        <Footer />
+        <Toaster position="bottom-right" theme="dark" />
+      </body>
+    </html>
+  );
+}"""
+
+files["src/app/page.tsx"] = """import Link from 'next/link';
+import { ArrowRight, Download, Box } from 'lucide-react';
+import { fetchPackages } from '@/lib/utils';
+import CopyButton from '@/components/CopyButton';
+
+export default async function Home() {
+  const data = await fetchPackages();
+  const packages = data.packages || [];
+  const latestPackages = packages.slice(0, 6);
+  const CLI_CMD = "pip install zenv-lang";
+
+  return (
+    <div className="flex flex-col">
+      {/* Hero Section */}
+      <section className="relative py-20 px-4 flex flex-col items-center justify-center text-center bg-gradient-to-b from-blue-900/20 to-transparent">
+        <div className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-medium mb-6 border border-primary/20">
+          v2.0.0 is now available
+        </div>
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-blue-400">
+          Zenv Package Hub
+        </h1>
+        <p className="text-xl text-gray-400 max-w-2xl mb-10">
+          Le gestionnaire de paquets moderne pour vos projets Python et Zenv. 
+          Rapide, sécurisé et distribué via GitHub.
+        </p>
+        
+        <div className="w-full max-w-xl relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="relative bg-darker border border-white/10 rounded-lg p-4 flex items-center justify-between">
+            <code className="text-green-400 font-mono text-lg ml-2">{CLI_CMD}</code>
+            <CopyButton text={CLI_CMD} />
+          </div>
+          <p className="text-xs text-gray-500 mt-2 text-right">Start by installing the CLI from PyPI</p>
+        </div>
+      </section>
+
+      {/* Packages Grid */}
+      <section className="max-w-7xl mx-auto w-full px-4 py-16">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Box className="text-primary" />
+            Derniers Paquets
+          </h2>
+          <Link href="/packages" className="text-sm text-primary hover:underline flex items-center gap-1">
+            Voir tout <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {latestPackages.map((pkg: any) => (
+            <Link key={pkg.name} href={`/packages/${pkg.name}`} className="group relative bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition hover:border-primary/50">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold text-white group-hover:text-primary transition">{pkg.name}</h3>
+                <span className="bg-white/10 text-xs px-2 py-1 rounded text-gray-400">v{pkg.version}</span>
+              </div>
+              <p className="text-gray-400 text-sm mb-6 line-clamp-2 h-10">{pkg.description || "Aucune description disponible"}</p>
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>{pkg.author || "Unknown"}</span>
+                <div className="flex items-center gap-1">
+                  <Download className="w-3 h-3" />
+                  {pkg.downloads_count || 0}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}"""
+
+files["src/app/packages/page.tsx"] = """import { fetchPackages } from '@/lib/utils';
+import Link from 'next/link';
+import { Download, Search } from 'lucide-react';
+
+export default async function PackagesPage() {
+  const data = await fetchPackages();
+  const packages = data.packages || [];
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      <h1 className="text-3xl font-bold mb-8">Explorer les Paquets</h1>
+      
+      <div className="relative mb-10">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input 
+          type="text" 
+          placeholder="Rechercher un paquet..." 
+          className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-lg leading-5 bg-white/5 text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-white/10 focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
+        />
+      </div>
+
+      <div className="grid gap-4">
+        {packages.map((pkg: any) => (
+          <Link key={pkg.name} href={`/packages/${pkg.name}`} className="flex flex-col md:flex-row md:items-center justify-between bg-white/5 border border-white/10 p-6 rounded-lg hover:border-primary/50 transition">
+            <div>
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-bold text-primary">{pkg.name}</h3>
+                <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">v{pkg.version}</span>
+              </div>
+              <p className="text-gray-400 mt-2">{pkg.description}</p>
+              <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                <span>Par {pkg.author}</span>
+                <span>•</span>
+                <span>Licence {pkg.license}</span>
+                <span>•</span>
+                <span className="text-gray-400">Mis à jour {new Date(pkg.updated_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+            <div className="mt-4 md:mt-0 flex items-center gap-2 text-gray-400">
+              <Download className="w-4 h-4" />
+              <span>{pkg.downloads_count}</span>
+            </div>
+          </Link>
+        ))}
+        {packages.length === 0 && (
+            <div className="text-center py-20 text-gray-500">
+                Aucun paquet trouvé. Publiez le premier !
+            </div>
+        )}
+      </div>
+    </div>
+  );
+}"""
+
+files["src/app/packages/[name]/page.tsx"] = """import { fetchPackageDetails } from '@/lib/utils';
+import CopyButton from '@/components/CopyButton';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { Download, Calendar, Shield, User, Terminal } from 'lucide-react';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+
+export const runtime = 'edge'; // Optimisation pour Cloudflare
+
+export default async function PackageDetail({ params }: { params: { name: string } }) {
+  const pkg = await fetchPackageDetails(params.name);
+
+  if (!pkg) {
+    notFound();
+  }
+
+  const installCmd = `zenv install ${pkg.name}`;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        {/* Main Content */}
+        <div className="lg:col-span-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2">{pkg.name}</h1>
+            <p className="text-xl text-gray-400">{pkg.description}</p>
+          </div>
+
+          <div className="border-b border-white/10 mb-8 pb-4">
+             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">README / Description</h2>
+          </div>
+
+          <div className="bg-darker border border-white/5 rounded-xl p-8 min-h-[400px]">
+            <MarkdownRenderer content={pkg.markdownContent} />
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* Install Box */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                <Terminal className="w-4 h-4" /> Installation
+            </h3>
+            <div className="relative bg-black rounded-lg p-3 border border-white/10">
+              <code className="text-green-400 text-sm font-mono">{installCmd}</code>
+              <CopyButton text={installCmd} />
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+                Nécessite <Link href="https://pypi.org/project/zenv-lang/" className="underline hover:text-primary">zenv-lang</Link> installé via pip.
+            </p>
+          </div>
+
+          {/* Metadata */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+            <h3 className="font-semibold text-lg border-b border-white/10 pb-2">Métadonnées</h3>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 flex items-center gap-2"><Download className="w-4 h-4"/> Téléchargements</span>
+              <span className="font-mono">{pkg.downloads_count}</span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 flex items-center gap-2"><Box className="w-4 h-4"/> Version</span>
+              <span>{pkg.version}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 flex items-center gap-2"><Shield className="w-4 h-4"/> Licence</span>
+              <span>{pkg.license}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 flex items-center gap-2"><User className="w-4 h-4"/> Auteur</span>
+              <span>{pkg.author}</span>
+            </div>
+
+             <div className="flex items-center justify-between">
+              <span className="text-gray-400 flex items-center gap-2"><Calendar className="w-4 h-4"/> Mis à jour</span>
+              <span className="text-sm">{new Date(pkg.updated_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          {/* Badges Preview */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Badge officiel</h3>
+            <div className="flex justify-center bg-dark p-4 rounded-lg">
+                <img 
+                    src={`https://zenv-hub.onrender.com/badge/shields/${pkg.name}/${pkg.version}/blue`} 
+                    alt="Badge"
+                />
+            </div>
+            <p className="text-xs text-center mt-2 text-gray-500">Ajoutez ceci à votre README GitHub</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}"""
+
+files["src/app/badges/page.tsx"] = """'use client';
+import { useState } from 'react';
+import CopyButton from '@/components/CopyButton';
+
+export default function BadgesPage() {
+  const [label, setLabel] = useState('zenv');
+  const [value, setValue] = useState('package');
+  const [color, setColor] = useState('blue');
+  const [style, setStyle] = useState('flat');
+
+  const badgeUrl = `https://zenv-hub.onrender.com/badge/shields/${label || 'label'}/${value || 'value'}/${color}/${'zenv'}/${style}`;
+  const mdCode = `![${label}](${badgeUrl})`;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-10">
+      <h1 className="text-3xl font-bold mb-8 text-center">Générateur de Badges</h1>
+      
+      <div className="bg-white/5 border border-white/10 rounded-xl p-8">
+        <div className="flex justify-center mb-10 min-h-[60px] items-center bg-black/30 rounded-lg border border-white/5 border-dashed">
+            <img src={badgeUrl} alt="Badge Preview" className="h-8" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Label (gauche)</label>
+                <input 
+                    type="text" 
+                    value={label} 
+                    onChange={(e) => setLabel(e.target.value)}
+                    className="w-full bg-dark border border-white/20 rounded p-2 focus:border-primary outline-none"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Valeur (droite)</label>
+                <input 
+                    type="text" 
+                    value={value} 
+                    onChange={(e) => setValue(e.target.value)}
+                    className="w-full bg-dark border border-white/20 rounded p-2 focus:border-primary outline-none"
+                />
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Couleur</label>
+                <select 
+                    value={color} 
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-full bg-dark border border-white/20 rounded p-2 outline-none"
+                >
+                    <option value="blue">Bleu</option>
+                    <option value="green">Vert</option>
+                    <option value="red">Rouge</option>
+                    <option value="orange">Orange</option>
+                    <option value="purple">Violet</option>
+                    <option value="gray">Gris</option>
+                </select>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Style</label>
+                <select 
+                    value={style} 
+                    onChange={(e) => setStyle(e.target.value)}
+                    className="w-full bg-dark border border-white/20 rounded p-2 outline-none"
+                >
+                    <option value="flat">Flat</option>
+                    <option value="plastic">Plastic</option>
+                    <option value="for-the-badge">For the Badge</option>
+                    <option value="flat-square">Flat Square</option>
+                </select>
+            </div>
+        </div>
+
+        <div className="relative bg-black p-4 rounded-lg border border-white/10">
+            <p className="text-xs text-gray-500 mb-2">Markdown pour GitHub:</p>
+            <code className="text-blue-300 break-all">{mdCode}</code>
+            <CopyButton text={mdCode} />
+        </div>
+      </div>
+    </div>
+  );
+}"""
+
+# -----------------------------------------------------------------------------
+# 3. GÉNÉRATION DES FICHIERS
+# -----------------------------------------------------------------------------
+
+def create_project():
+    print(f"🚀 Génération du frontend {PROJECT_NAME}...")
+    
+    root_path = Path(PROJECT_NAME)
+    if not root_path.exists():
+        root_path.mkdir()
+    
+    for file_path, content in files.items():
+        full_path = root_path / file_path
+        if not full_path.parent.exists():
+            full_path.parent.mkdir(parents=True)
+        
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content)
+            print(f"  ✅ Créé: {file_path}")
+
+    print("\n" + "="*50)
+    print("✨ Frontend généré pour Cloudflare!")
+    print("="*50)
+
+if __name__ == "__main__":
+    create_project()
